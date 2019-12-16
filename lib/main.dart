@@ -1,3 +1,7 @@
+import 'dart:async';
+import 'dart:math';
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 
 void main() => runApp(MyApp());
@@ -9,103 +13,220 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'Flutter Demo',
       theme: ThemeData(
-        // This is the theme of your application.
-        //
-        // Try running your application with "flutter run". You'll see the
-        // application has a blue toolbar. Then, without quitting the app, try
-        // changing the primarySwatch below to Colors.green and then invoke
-        // "hot reload" (press "r" in the console where you ran "flutter run",
-        // or simply save your changes to "hot reload" in a Flutter IDE).
-        // Notice that the counter didn't reset back to zero; the application
-        // is not restarted.
         primarySwatch: Colors.blue,
       ),
-      home: MyHomePage(title: 'Flutter Demo Home Page'),
+      home: MyHomePage(),
     );
   }
 }
 
 class MyHomePage extends StatefulWidget {
-  MyHomePage({Key key, this.title}) : super(key: key);
+  final double radius;
+  final Color hourHandColor;
+  final Color minuteHandColor;
+  final Color secondHandColor;
+  final Color numberColor;
+  final Color borderColor;
 
-  // This widget is the home page of your application. It is stateful, meaning
-  // that it has a State object (defined below) that contains fields that affect
-  // how it looks.
-
-  // This class is the configuration for the state. It holds the values (in this
-  // case the title) provided by the parent (in this case the App widget) and
-  // used by the build method of the State. Fields in a Widget subclass are
-  // always marked "final".
-
-  final String title;
+  const MyHomePage(
+      {Key key,
+      this.hourHandColor,
+      this.minuteHandColor,
+      this.secondHandColor,
+      this.numberColor,
+      this.borderColor,
+      this.radius = 150.0})
+      : super(key: key);
 
   @override
-  _MyHomePageState createState() => _MyHomePageState();
+  State<StatefulWidget> createState() {
+    return _MyHomePageState();
+  }
 }
 
 class _MyHomePageState extends State<MyHomePage> {
-  int _counter = 0;
+  DateTime datetime;
+  Timer timer;
 
-  void _incrementCounter() {
-    setState(() {
-      // This call to setState tells the Flutter framework that something has
-      // changed in this State, which causes it to rerun the build method below
-      // so that the display can reflect the updated values. If we changed
-      // _counter without calling setState(), then the build method would not be
-      // called again, and so nothing would appear to happen.
-      _counter++;
+  @override
+  void initState() {
+    super.initState();
+    datetime = DateTime.now();
+    timer = Timer.periodic(Duration(seconds: 1), (timer) {
+      setState(() {
+        datetime = DateTime.now();
+      });
     });
   }
 
   @override
+  void dispose() {
+    super.dispose();
+    timer.cancel();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    // This method is rerun every time setState is called, for instance as done
-    // by the _incrementCounter method above.
-    //
-    // The Flutter framework has been optimized to make rerunning build methods
-    // fast, so that you can just rebuild anything that needs updating rather
-    // than having to individually change instances of widgets.
     return Scaffold(
-      appBar: AppBar(
-        // Here we take the value from the MyHomePage object that was created by
-        // the App.build method, and use it to set our appbar title.
-        title: Text(widget.title),
-      ),
-      body: Center(
-        // Center is a layout widget. It takes a single child and positions it
-        // in the middle of the parent.
-        child: Column(
-          // Column is also a layout widget. It takes a list of children and
-          // arranges them vertically. By default, it sizes itself to fit its
-          // children horizontally, and tries to be as tall as its parent.
-          //
-          // Invoke "debug painting" (press "p" in the console, choose the
-          // "Toggle Debug Paint" action from the Flutter Inspector in Android
-          // Studio, or the "Toggle Debug Paint" command in Visual Studio Code)
-          // to see the wireframe for each widget.
-          //
-          // Column has various properties to control how it sizes itself and
-          // how it positions its children. Here we use mainAxisAlignment to
-          // center the children vertically; the main axis here is the vertical
-          // axis because Columns are vertical (the cross axis would be
-          // horizontal).
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: <Widget>[
-            Text(
-              'You have pushed the button this many times:',
-            ),
-            Text(
-              '$_counter',
-              style: Theme.of(context).textTheme.display1,
-            ),
-          ],
-        ),
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _incrementCounter,
-        tooltip: 'Increment',
-        child: Icon(Icons.add),
-      ), // This trailing comma makes auto-formatting nicer for build methods.
-    );
+        body: Center(
+            child: CustomPaint(
+      painter: ClockPainter(datetime,
+          numberColor: Colors.black,
+          handColor: Colors.black,
+          borderColor: Colors.black,
+          radius: widget.radius),
+      size: Size(widget.radius * 2, widget.radius * 2),
+    )));
   }
 }
+
+class ClockPainter extends CustomPainter {
+  final Color handColor;
+  final Color numberColor;
+  final Color borderColor;
+  final double radius;
+  List<Offset> secondsOffset = [];
+  final DateTime datetime;
+  TextPainter textPainter;
+  double angle;
+  double borderWidth;
+
+  ClockPainter(this.datetime,
+      {this.radius = 150.0,
+      this.handColor = Colors.black,
+      this.numberColor = Colors.black,
+      this.borderColor = Colors.black}) {
+    borderWidth = radius / 14;
+    final secondDistance = radius - borderWidth * 2;
+    //init seconds offset
+    for (var i = 0; i < 60; i++) {
+      Offset offset = Offset(
+          cos(degToRad(6 * i - 90)) * secondDistance + radius,
+          sin(degToRad(6 * i - 90)) * secondDistance + radius);
+      secondsOffset.add(offset);
+    }
+
+    textPainter = new TextPainter(
+      textAlign: TextAlign.center,
+      textDirection: TextDirection.rtl,
+    );
+    angle = degToRad(360 / 60);
+  }
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final scale = radius / 150;
+
+    //draw border
+    final borderPaint = Paint()
+      ..color = borderColor
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = borderWidth;
+    canvas.drawCircle(
+        Offset(radius, radius), radius - borderWidth / 2, borderPaint);
+
+    //draw second point
+    final secondPPaint = Paint()
+      ..strokeWidth = 2 * scale
+      ..color = numberColor;
+    if (secondsOffset.length > 0) {
+      canvas.drawPoints(PointMode.points, secondsOffset, secondPPaint);
+
+      canvas.save();
+      canvas.translate(radius, radius);
+
+      List<Offset> bigger = [];
+      for (var i = 0; i < secondsOffset.length; i++) {
+        if (i % 5 == 0) {
+          bigger.add(secondsOffset[i]);
+
+          //draw number
+          canvas.save();
+          canvas.translate(0.0, -radius + borderWidth * 4);
+          textPainter.text = new TextSpan(
+            text: "${(i ~/ 5) == 0 ? "12" : (i ~/ 5)}",
+            style: TextStyle(
+              color: numberColor,
+              fontFamily: 'Times New Roman',
+              fontSize: 28.0 * scale,
+            ),
+          );
+
+          //helps make the text painted vertically
+          canvas.rotate(-angle * i);
+
+          textPainter.layout();
+          textPainter.paint(canvas,
+              new Offset(-(textPainter.width / 2), -(textPainter.height / 2)));
+          canvas.restore();
+        }
+        canvas.rotate(angle);
+      }
+      canvas.restore();
+
+      final biggerPaint = Paint()
+        ..strokeWidth = 5 * scale
+        ..color = numberColor;
+      canvas.drawPoints(PointMode.points, bigger, biggerPaint);
+    }
+
+    final hour = datetime.hour;
+    final minute = datetime.minute;
+    final second = datetime.second;
+
+    // draw hour hand
+    Offset hourHand1 = Offset(
+        radius - cos(degToRad(360 / 12 * hour - 90)) * (radius * 0.2),
+        radius - sin(degToRad(360 / 12 * hour - 90)) * (radius * 0.2));
+    Offset hourHand2 = Offset(
+        radius + cos(degToRad(360 / 12 * hour - 90)) * (radius * 0.5),
+        radius + sin(degToRad(360 / 12 * hour - 90)) * (radius * 0.5));
+    final hourPaint = Paint()
+      ..color = handColor
+      ..strokeWidth = 8 * scale;
+    canvas.drawLine(hourHand1, hourHand2, hourPaint);
+
+    // draw minute hand
+    Offset minuteHand1 = Offset(
+        radius - cos(degToRad(360 / 60 * minute - 90)) * (radius * 0.3),
+        radius - sin(degToRad(360 / 60 * minute - 90)) * (radius * 0.3));
+    Offset minuteHand2 = Offset(
+        radius +
+            cos(degToRad(360 / 60 * minute - 90)) * (radius - borderWidth * 3),
+        radius +
+            sin(degToRad(360 / 60 * minute - 90)) * (radius - borderWidth * 3));
+    final minutePaint = Paint()
+      ..color = handColor
+      ..strokeWidth = 3 * scale;
+    canvas.drawLine(minuteHand1, minuteHand2, minutePaint);
+
+    // draw second hand
+    Offset secondHand1 = Offset(
+        radius - cos(degToRad(360 / 60 * second - 90)) * (radius * 0.3),
+        radius - sin(degToRad(360 / 60 * second - 90)) * (radius * 0.3));
+    Offset secondHand2 = Offset(
+        radius +
+            cos(degToRad(360 / 60 * second - 90)) * (radius - borderWidth * 3),
+        radius +
+            sin(degToRad(360 / 60 * second - 90)) * (radius - borderWidth * 3));
+    final secondPaint = Paint()
+      ..color = handColor
+      ..strokeWidth = 1 * scale;
+    canvas.drawLine(secondHand1, secondHand2, secondPaint);
+
+    final centerPaint = Paint()
+      ..strokeWidth = 2 * scale
+      ..style = PaintingStyle.stroke
+      ..color = Colors.yellow;
+    canvas.drawCircle(Offset(radius, radius), 4 * scale, centerPaint);
+  }
+
+  @override
+  bool shouldRepaint(CustomPainter oldDelegate) {
+    return true;
+  }
+}
+
+num degToRad(num deg) => deg * (pi / 180.0);
+
+num radToDeg(num rad) => rad * (180.0 / pi);
